@@ -756,6 +756,8 @@ namespace WebSocketSharp.Server
     /// </summary>
     public event EventHandler<HttpRequestEventArgs> OnTrace;
 
+    public event EventHandler<HttpRequestEventArgs> OnRequest;
+
     #endregion
 
     #region Private Methods
@@ -871,6 +873,8 @@ namespace WebSocketSharp.Server
                             : method == "TRACE"
                               ? OnTrace
                               : null;
+      if (OnRequest != null)
+        evt += OnRequest;
 
       if (evt == null) {
         context.ErrorStatusCode = 501;

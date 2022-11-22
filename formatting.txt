@@ -1,0 +1,17 @@
+([^ (])\(
+$1 (
+
+\)([^ );.,"])
+) $1
+
+(try|finally|catch|else|get|set)[ \n]*?\{
+$1 {
+
+(if|lock|catch|using|foreach|for|while) \((.*?)\)[ \n]*?\{
+$1 ($2) {
+
+=>[ \n]*?\{
+=> {
+
+([a-zA-Z]*?)[ \n]*?\{([ \n]*?(get|set))
+$1 {$2

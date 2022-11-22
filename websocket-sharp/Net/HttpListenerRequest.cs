@@ -806,20 +806,6 @@ namespace WebSocketSharp.Net
       }
 
       var method = parts[0];
-
-      if (method.Length == 0) {
-        _context.ErrorMessage = "Invalid request line (method)";
-
-        return;
-      }
-
-      if (!method.IsHttpMethod ()) {
-        _context.ErrorStatusCode = 501;
-        _context.ErrorMessage = "Invalid request line (method)";
-
-        return;
-      }
-
       var target = parts[1];
 
       if (target.Length == 0) {

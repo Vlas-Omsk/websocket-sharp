@@ -526,10 +526,7 @@ namespace WebSocketSharp.Server
       if (data == null)
         throw new ArgumentNullException ("data");
 
-      if (data.LongLength <= WebSocket.FragmentLength)
-        broadcast (Opcode.Binary, data, null);
-      else
-        broadcast (Opcode.Binary, new MemoryStream (data), null);
+      broadcast (Opcode.Binary, new MemoryStream (data), null);
     }
 
     /// <summary>
@@ -566,10 +563,7 @@ namespace WebSocketSharp.Server
         throw new ArgumentException (msg, "data");
       }
 
-      if (bytes.LongLength <= WebSocket.FragmentLength)
-        broadcast (Opcode.Text, bytes, null);
-      else
-        broadcast (Opcode.Text, new MemoryStream (bytes), null);
+      broadcast (Opcode.Text, new MemoryStream (bytes), null);
     }
 
     /// <summary>
@@ -649,10 +643,7 @@ namespace WebSocketSharp.Server
         _log.Warn (msg);
       }
 
-      if (len <= WebSocket.FragmentLength)
-        broadcast (Opcode.Binary, bytes, null);
-      else
-        broadcast (Opcode.Binary, new MemoryStream (bytes), null);
+      broadcast (Opcode.Binary, new MemoryStream (bytes), null);
     }
 
     /// <summary>
@@ -691,10 +682,7 @@ namespace WebSocketSharp.Server
       if (data == null)
         throw new ArgumentNullException ("data");
 
-      if (data.LongLength <= WebSocket.FragmentLength)
-        broadcastAsync (Opcode.Binary, data, completed);
-      else
-        broadcastAsync (Opcode.Binary, new MemoryStream (data), completed);
+      broadcastAsync (Opcode.Binary, new MemoryStream (data), completed);
     }
 
     /// <summary>
@@ -744,10 +732,7 @@ namespace WebSocketSharp.Server
         throw new ArgumentException (msg, "data");
       }
 
-      if (bytes.LongLength <= WebSocket.FragmentLength)
-        broadcastAsync (Opcode.Text, bytes, completed);
-      else
-        broadcastAsync (Opcode.Text, new MemoryStream (bytes), completed);
+      broadcastAsync (Opcode.Text, new MemoryStream (bytes), completed);
     }
 
     /// <summary>
@@ -839,10 +824,7 @@ namespace WebSocketSharp.Server
         _log.Warn (msg);
       }
 
-      if (len <= WebSocket.FragmentLength)
-        broadcastAsync (Opcode.Binary, bytes, completed);
-      else
-        broadcastAsync (Opcode.Binary, new MemoryStream (bytes), completed);
+      broadcastAsync (Opcode.Binary, new MemoryStream (bytes), completed);
     }
 
     /// <summary>
@@ -1269,7 +1251,7 @@ namespace WebSocketSharp.Server
     ///   The current state of the WebSocket connection is not Open.
     ///   </para>
     /// </exception>
-    public void SendTo (Stream stream, int length, string id)
+    public void SendTo (Stream stream, string id)
     {
       IWebSocketSession session;
 
@@ -1279,7 +1261,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.Send (stream, length);
+      session.Context.WebSocket.Send (stream);
     }
 
     /// <summary>

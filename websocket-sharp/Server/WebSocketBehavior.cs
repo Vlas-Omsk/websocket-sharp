@@ -471,6 +471,8 @@ namespace WebSocketSharp.Server
       _websocket.OnError += onError;
       _websocket.OnClose += onClose;
 
+      OnStart ();
+
       _websocket.Accept ();
     }
 
@@ -794,6 +796,13 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
+    /// Called when the instance started.
+    /// </summary>
+    protected virtual void OnStart ()
+    {
+    }
+
+    /// <summary>
     /// Called when the WebSocket connection for a session has been closed.
     /// </summary>
     /// <param name="e">
@@ -1016,7 +1025,7 @@ namespace WebSocketSharp.Server
     ///   No data could be read from <paramref name="stream"/>.
     ///   </para>
     /// </exception>
-    protected void Send (Stream stream, int length)
+    protected void Send (Stream stream)
     {
       if (_websocket == null) {
         var msg = "The current state of the connection is not Open.";
@@ -1024,7 +1033,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      _websocket.Send (stream, length);
+      _websocket.Send (stream);
     }
 
     /// <summary>

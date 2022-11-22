@@ -119,6 +119,7 @@ namespace WebSocketSharp
     private Uri                            _uri;
     private const string                   _version = "13";
     private TimeSpan                       _waitTime;
+    private int                            _fragmentLength = 2048;
 
     #endregion
 
@@ -128,20 +129,6 @@ namespace WebSocketSharp
     /// Represents the empty array of <see cref="byte"/> used internally.
     /// </summary>
     internal static readonly byte[] EmptyBytes;
-
-    /// <summary>
-    /// Represents the length used to determine whether the data should be fragmented in sending.
-    /// </summary>
-    /// <remarks>
-    ///   <para>
-    ///   The data will be fragmented if that length is greater than the value of this field.
-    ///   </para>
-    ///   <para>
-    ///   If you would like to change the value, you must set it to a value between <c>125</c> and
-    ///   <c>Int32.MaxValue - 14</c> inclusive.
-    ///   </para>
-    /// </remarks>
-    internal static readonly int FragmentLength;
 
     /// <summary>
     /// Represents the random number generator used internally.
@@ -156,7 +143,6 @@ namespace WebSocketSharp
     {
       _maxRetryCountForConnect = 10;
       EmptyBytes = new byte[0];
-      FragmentLength = 1016;
       RandomNumber = new RNGCryptoServiceProvider ();
     }
 
@@ -330,6 +316,28 @@ namespace WebSocketSharp
     #endregion
 
     #region Public Properties
+
+    /// <summary>
+    /// Represents the length used to determine whether the data should be fragmented in sending.
+    /// </summary>
+    /// <remarks>
+    ///   <para>
+    ///   The data will be fragmented if that length is greater than the value of this field.
+    ///   </para>
+    ///   <para>
+    ///   If you would like to change the value, you must set it to a value between <c>125</c> and
+    ///   <c>Int32.MaxValue - 14</c> inclusive.
+    ///   </para>
+    /// </remarks>
+    public int FragmentLength {
+      get {
+        return _fragmentLength;
+      }
+      set {
+        lock (_forSend)
+          _fragmentLength = value;
+      }
+    }
 
     /// <summary>
     /// Gets or sets the compression method used to compress a message.
@@ -2068,8 +2076,35 @@ namespace WebSocketSharp
              && send (Fin.Final, Opcode.Cont, buff, false);
     }
 
+#if DEBUG_FRAMES
+    MemoryStream compressorstream;
+    System.IO.Compression.DeflateStream compressor;
+#endif
+
     private bool send (Fin fin, Opcode opcode, byte[] data, bool compressed)
     {
+#if DEBUG_FRAMES
+      if (compressorstream == null)
+        compressorstream = new MemoryStream ();
+
+      compressorstream.Write (data);
+      compressorstream.Position -= data.Length;
+
+      if (compressor == null)
+        compressor = new System.IO.Compression.DeflateStream (compressorstream, System.IO.Compression.CompressionMode.Decompress);
+
+      var b = compressor.ReadBytes (10000);
+
+      Console.Write (fin + " (length: " + data.Length + ") " + string.Join (", ", b));
+      Console.WriteLine ();
+      Console.WriteLine ();
+
+      if (fin == Fin.Final) {
+        compressorstream = null;
+        compressor = null;
+      }
+#endif
+
       lock (_forState) {
         if (_readyState != WebSocketState.Open) {
           _logger.Trace ("The connection is closing.");
@@ -3563,7 +3598,7 @@ namespace WebSocketSharp
     ///   No data could be read from <paramref name="stream"/>.
     ///   </para>
     /// </exception>
-    public void Send (Stream stream, int length)
+    public void Send (Stream stream)
     {
       if (_readyState != WebSocketState.Open) {
         var msg = "The current state of the connection is not Open.";
@@ -3578,29 +3613,7 @@ namespace WebSocketSharp
         throw new ArgumentException (msg, "stream");
       }
 
-      if (length < 1) {
-        var msg = "Less than 1.";
-        throw new ArgumentException (msg, "length");
-      }
-
-      var bytes = stream.ReadBytes (length);
-
-      var len = bytes.Length;
-      if (len == 0) {
-        var msg = "No data could be read from it.";
-        throw new ArgumentException (msg, "stream");
-      }
-
-      if (len < length) {
-        _logger.Warn (
-          String.Format (
-            "Only {0} byte(s) of data could be read from the stream.",
-            len
-          )
-        );
-      }
-
-      send (Opcode.Binary, new MemoryStream (bytes));
+      send (Opcode.Binary, stream);
     }
 
     /// <summary>
