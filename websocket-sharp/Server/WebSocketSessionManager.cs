@@ -325,7 +325,7 @@ namespace WebSocketSharp.Server
             break;
           }
 
-          session.Context.WebSocket.Send (opcode, data, cache);
+          session.WebSocket.Send (opcode, data, cache);
         }
 
         if (completed != null)
@@ -352,7 +352,7 @@ namespace WebSocketSharp.Server
             break;
           }
 
-          session.Context.WebSocket.Send (opcode, stream, cache);
+          session.WebSocket.Send (opcode, stream, cache);
         }
 
         if (completed != null)
@@ -395,7 +395,7 @@ namespace WebSocketSharp.Server
           break;
         }
 
-        var res = session.Context.WebSocket.Ping (frameAsBytes, _waitTime);
+        var res = session.WebSocket.Ping (frameAsBytes, _waitTime);
 
         ret.Add (session.ID, res);
       }
@@ -432,7 +432,7 @@ namespace WebSocketSharp.Server
         _sweepTimer.Enabled = false;
 
         foreach (var session in _sessions.Values.ToList ())
-          session.Context.WebSocket.Close (payloadData, bytes);
+          session.WebSocket.Close (payloadData, bytes);
 
         _state = ServerState.Stop;
       }
@@ -852,7 +852,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.Close ();
+      session.WebSocket.Close ();
     }
 
     /// <summary>
@@ -930,7 +930,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.Close (code, reason);
+      session.WebSocket.Close (code, reason);
     }
 
     /// <summary>
@@ -999,7 +999,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.Close (code, reason);
+      session.WebSocket.Close (code, reason);
     }
 
     /// <summary>
@@ -1031,7 +1031,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      return session.Context.WebSocket.Ping ();
+      return session.WebSocket.Ping ();
     }
 
     /// <summary>
@@ -1083,7 +1083,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      return session.Context.WebSocket.Ping (message);
+      return session.WebSocket.Ping (message);
     }
 
     /// <summary>
@@ -1130,7 +1130,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.Send (data);
+      session.WebSocket.Send (data);
     }
 
     /// <summary>
@@ -1185,7 +1185,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.Send (data);
+      session.WebSocket.Send (data);
     }
 
     /// <summary>
@@ -1261,7 +1261,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.Send (stream);
+      session.WebSocket.Send (stream);
     }
 
     /// <summary>
@@ -1325,7 +1325,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.SendAsync (data, completed);
+      session.WebSocket.SendAsync (data, completed);
     }
 
     /// <summary>
@@ -1397,7 +1397,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.SendAsync (data, completed);
+      session.WebSocket.SendAsync (data, completed);
     }
 
     /// <summary>
@@ -1491,7 +1491,7 @@ namespace WebSocketSharp.Server
         throw new InvalidOperationException (msg);
       }
 
-      session.Context.WebSocket.SendAsync (stream, length, completed);
+      session.WebSocket.SendAsync (stream, length, completed);
     }
 
     /// <summary>
@@ -1528,10 +1528,10 @@ namespace WebSocketSharp.Server
           if (!_sessions.TryGetValue (id, out session))
             continue;
 
-          var state = session.ConnectionState;
+          var state = session.WebSocket.ReadyState;
 
           if (state == WebSocketState.Open) {
-            session.Context.WebSocket.Close (CloseStatusCode.Abnormal);
+            session.WebSocket.Close (CloseStatusCode.Abnormal);
 
             continue;
           }
