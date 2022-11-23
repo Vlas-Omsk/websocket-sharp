@@ -336,16 +336,6 @@ namespace WebSocketSharp.Server
     ///   / is trimmed from the end of the string if present.
     ///   </para>
     /// </param>
-    /// <param name="initializer">
-    ///   <para>
-    ///   An <c>Action&lt;TBehavior&gt;</c> delegate or
-    ///   <see langword="null"/> if not needed.
-    ///   </para>
-    ///   <para>
-    ///   The delegate invokes the method called when initializing
-    ///   a new session instance for the service.
-    ///   </para>
-    /// </param>
     /// <typeparam name="TBehavior">
     ///   <para>
     ///   The type of the behavior for the service.
@@ -384,10 +374,74 @@ namespace WebSocketSharp.Server
     ///   <paramref name="path"/> is already in use.
     ///   </para>
     /// </exception>
+    public void AddService<TBehavior> (string path)
+      where TBehavior : WebSocketBehavior, new ()
+    {
+      AddService<TBehavior> (path, () => new TBehavior ());
+    }
+
+    /// <summary>
+    /// Adds a WebSocket service with the specified behavior, path,
+    /// and delegate.
+    /// </summary>
+    /// <param name="path">
+    ///   <para>
+    ///   A <see cref="string"/> that specifies an absolute path to
+    ///   the service to add.
+    ///   </para>
+    ///   <para>
+    ///   / is trimmed from the end of the string if present.
+    ///   </para>
+    /// </param>
+    /// <param name="creator">
+    ///   <para>
+    ///   An <c>Action&lt;TBehavior&gt;</c> delegate or
+    ///   <see langword="null"/> if not needed.
+    ///   </para>
+    ///   <para>
+    ///   The delegate invokes the method called when initializing
+    ///   a new session instance for the service.
+    ///   </para>
+    /// </param>
+    /// <typeparam name="TBehavior">
+    ///   <para>
+    ///   The type of the behavior for the service.
+    ///   </para>
+    ///   <para>
+    ///   It must inherit the <see cref="WebSocketBehavior"/> class.
+    ///   </para>
+    /// </typeparam>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="path"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///   <para>
+    ///   <paramref name="path"/> is an empty string.
+    ///   </para>
+    ///   <para>
+    ///   -or-
+    ///   </para>
+    ///   <para>
+    ///   <paramref name="path"/> is not an absolute path.
+    ///   </para>
+    ///   <para>
+    ///   -or-
+    ///   </para>
+    ///   <para>
+    ///   <paramref name="path"/> includes either or both
+    ///   query and fragment components.
+    ///   </para>
+    ///   <para>
+    ///   -or-
+    ///   </para>
+    ///   <para>
+    ///   <paramref name="path"/> is already in use.
+    ///   </para>
+    /// </exception>
     public void AddService<TBehavior> (
       string path, Func<TBehavior> creator
     )
-      where TBehavior : WebSocketBehavior, new ()
+      where TBehavior : WebSocketBehavior
     {
       if (path == null)
         throw new ArgumentNullException ("path");
