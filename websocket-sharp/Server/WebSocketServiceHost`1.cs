@@ -31,7 +31,7 @@ using System;
 namespace WebSocketSharp.Server
 {
   internal class WebSocketServiceHost<TBehavior> : WebSocketServiceHost
-    where TBehavior : WebSocketBehavior, new ()
+    where TBehavior : WebSocketBehavior
   {
     #region Private Fields
 
@@ -42,11 +42,11 @@ namespace WebSocketSharp.Server
     #region Internal Constructors
 
     internal WebSocketServiceHost (
-      string path, Action<TBehavior> initializer, Logger log
+      string path, Func<TBehavior> creator, Logger log
     )
       : base (path, log)
     {
-      _creator = createSessionCreator (initializer);
+      _creator = creator;
     }
 
     #endregion
@@ -57,26 +57,6 @@ namespace WebSocketSharp.Server
       get {
         return typeof (TBehavior);
       }
-    }
-
-    #endregion
-
-    #region Private Methods
-
-    private static Func<TBehavior> createSessionCreator (
-      Action<TBehavior> initializer
-    )
-    {
-      if (initializer == null)
-        return () => new TBehavior ();
-
-      return () => {
-               var ret = new TBehavior ();
-
-               initializer (ret);
-
-               return ret;
-             };
     }
 
     #endregion

@@ -385,7 +385,7 @@ namespace WebSocketSharp.Server
     ///   </para>
     /// </exception>
     public void AddService<TBehavior> (
-      string path, Action<TBehavior> initializer
+      string path, Func<TBehavior> creator
     )
       where TBehavior : WebSocketBehavior, new ()
     {
@@ -412,13 +412,13 @@ namespace WebSocketSharp.Server
       lock (_sync) {
         WebSocketServiceHost host;
 
-        if (_hosts.TryGetValue (path, out host)) {
+        if (_hosts.ContainsKey (path)) {
           var msg = "It is already in use.";
 
           throw new ArgumentException (msg, "path");
         }
 
-        host = new WebSocketServiceHost<TBehavior> (path, initializer, _log);
+        host = new WebSocketServiceHost<TBehavior> (path, creator, _log);
 
         if (!_keepClean)
           host.KeepClean = false;
