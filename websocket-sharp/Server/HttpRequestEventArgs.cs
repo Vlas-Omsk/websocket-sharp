@@ -122,6 +122,16 @@ namespace WebSocketSharp.Server
 
     #endregion
 
+    #region Internal Properties
+
+    internal HttpListenerContext Context {
+      get {
+        return _context;
+      }
+    }
+
+    #endregion
+
     #region Private Methods
 
     private string createFilePath (string childPath)

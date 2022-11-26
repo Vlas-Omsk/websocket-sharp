@@ -38,7 +38,7 @@ using System;
 namespace WebSocketSharp
 {
   /// <summary>
-  /// Represents the event data for the <see cref="WebSocket.OnError"/> event.
+  /// Represents the event data for the <see cref="WebSocket.Error"/> event.
   /// </summary>
   /// <remarks>
   ///   <para>

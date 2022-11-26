@@ -717,46 +717,26 @@ namespace WebSocketSharp.Server
     #region Public Events
 
     /// <summary>
-    /// Occurs when the server receives an HTTP CONNECT request.
+    /// Occurs when the server receives an HTTP request.
     /// </summary>
-    public event EventHandler<HttpRequestEventArgs> OnConnect;
+    public event EventHandler<HttpRequestEventArgs> Request;
 
-    /// <summary>
-    /// Occurs when the server receives an HTTP DELETE request.
-    /// </summary>
-    public event EventHandler<HttpRequestEventArgs> OnDelete;
+    #endregion
 
-    /// <summary>
-    /// Occurs when the server receives an HTTP GET request.
-    /// </summary>
-    public event EventHandler<HttpRequestEventArgs> OnGet;
+    #region Protected Methods
 
-    /// <summary>
-    /// Occurs when the server receives an HTTP HEAD request.
-    /// </summary>
-    public event EventHandler<HttpRequestEventArgs> OnHead;
+    protected virtual void OnRequest (HttpRequestEventArgs e)
+    {
+      if (Request == null)
+      {
+        e.Context.ErrorStatusCode = 501;
+        e.Context.SendError ();
 
-    /// <summary>
-    /// Occurs when the server receives an HTTP OPTIONS request.
-    /// </summary>
-    public event EventHandler<HttpRequestEventArgs> OnOptions;
+        return;
+      }
 
-    /// <summary>
-    /// Occurs when the server receives an HTTP POST request.
-    /// </summary>
-    public event EventHandler<HttpRequestEventArgs> OnPost;
-
-    /// <summary>
-    /// Occurs when the server receives an HTTP PUT request.
-    /// </summary>
-    public event EventHandler<HttpRequestEventArgs> OnPut;
-
-    /// <summary>
-    /// Occurs when the server receives an HTTP TRACE request.
-    /// </summary>
-    public event EventHandler<HttpRequestEventArgs> OnTrace;
-
-    public event EventHandler<HttpRequestEventArgs> OnRequest;
+      Request.Emit (this, e);
+    }
 
     #endregion
 
@@ -856,35 +836,8 @@ namespace WebSocketSharp.Server
     private void processRequest (HttpListenerContext context)
     {
       var method = context.Request.HttpMethod;
-      var evt = method == "GET"
-                ? OnGet
-                : method == "HEAD"
-                  ? OnHead
-                  : method == "POST"
-                    ? OnPost
-                    : method == "PUT"
-                      ? OnPut
-                      : method == "DELETE"
-                        ? OnDelete
-                        : method == "CONNECT"
-                          ? OnConnect
-                          : method == "OPTIONS"
-                            ? OnOptions
-                            : method == "TRACE"
-                              ? OnTrace
-                              : null;
-      if (OnRequest != null)
-        evt += OnRequest;
-
-      if (evt == null) {
-        context.ErrorStatusCode = 501;
-        context.SendError ();
-
-        return;
-      }
-
       var e = new HttpRequestEventArgs (context, _docRootPath);
-      evt (this, e);
+      OnRequest (e);
 
       context.Response.Close ();
     }

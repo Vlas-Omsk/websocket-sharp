@@ -412,12 +412,12 @@ namespace WebSocketSharp
     }
 
     /// <summary>
-    /// Gets or sets a value indicating whether a <see cref="OnMessage"/> event
+    /// Gets or sets a value indicating whether a <see cref="Message"/> event
     /// is emitted when a ping is received.
     /// </summary>
     /// <value>
     ///   <para>
-    ///   <c>true</c> if this instance emits a <see cref="OnMessage"/> event
+    ///   <c>true</c> if this instance emits a <see cref="Message"/> event
     ///   when receives a ping; otherwise, <c>false</c>.
     ///   </para>
     ///   <para>
@@ -751,22 +751,22 @@ namespace WebSocketSharp
     /// <summary>
     /// Occurs when the WebSocket connection has been closed.
     /// </summary>
-    public event EventHandler<CloseEventArgs> OnClose;
+    public event EventHandler<CloseEventArgs> Closed;
 
     /// <summary>
     /// Occurs when the <see cref="WebSocket"/> gets an error.
     /// </summary>
-    public event EventHandler<ErrorEventArgs> OnError;
+    public event EventHandler<ErrorEventArgs> Error;
 
     /// <summary>
     /// Occurs when the <see cref="WebSocket"/> receives a message.
     /// </summary>
-    public event EventHandler<MessageEventArgs> OnMessage;
+    public event EventHandler<MessageEventArgs> Message;
 
     /// <summary>
     /// Occurs when the WebSocket connection has been established.
     /// </summary>
-    public event EventHandler OnOpen;
+    public event EventHandler Opened;
 
     #endregion
 
@@ -1162,7 +1162,7 @@ namespace WebSocketSharp
       var e = new CloseEventArgs (payloadData, res);
 
       try {
-        OnClose.Emit (this, e);
+        Closed.Emit (this, e);
       }
       catch (Exception ex) {
         _logger.Error (ex.Message);
@@ -1471,7 +1471,7 @@ namespace WebSocketSharp
       var e = new ErrorEventArgs (message, exception);
 
       try {
-        OnError.Emit (this, e);
+        Error.Emit (this, e);
       }
       catch (Exception ex) {
         _logger.Error (ex.Message);
@@ -1525,7 +1525,7 @@ namespace WebSocketSharp
     {
       do {
         try {
-          OnMessage.Emit (this, e);
+          Message.Emit (this, e);
         }
         catch (Exception ex) {
           _logger.Error (ex.Message);
@@ -1556,7 +1556,7 @@ namespace WebSocketSharp
     private void messages (MessageEventArgs e)
     {
       try {
-        OnMessage.Emit (this, e);
+        Message.Emit (this, e);
       }
       catch (Exception ex) {
         _logger.Error (ex.Message);
@@ -1591,7 +1591,7 @@ namespace WebSocketSharp
       startReceiving ();
 
       try {
-        OnOpen.Emit (this, EventArgs.Empty);
+        Opened.Emit (this, EventArgs.Empty);
       }
       catch (Exception ex) {
         _logger.Error (ex.Message);
@@ -2508,7 +2508,7 @@ namespace WebSocketSharp
       var e = new CloseEventArgs (payloadData, res);
 
       try {
-        OnClose.Emit (this, e);
+        Closed.Emit (this, e);
       }
       catch (Exception ex) {
         _logger.Error (ex.Message);

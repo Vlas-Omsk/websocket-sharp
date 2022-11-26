@@ -542,10 +542,10 @@ namespace WebSocketSharp.Server
       if (waitTime != _websocket.WaitTime)
         _websocket.WaitTime = waitTime;
 
-      _websocket.OnOpen += onOpen;
-      _websocket.OnMessage += onMessage;
-      _websocket.OnError += onError;
-      _websocket.OnClose += onClose;
+      _websocket.Opened += onOpen;
+      _websocket.Message += onMessage;
+      _websocket.Error += onError;
+      _websocket.Closed += onClose;
 
       OnStart ();
 
@@ -885,7 +885,7 @@ namespace WebSocketSharp.Server
     /// </summary>
     /// <param name="e">
     /// A <see cref="CloseEventArgs"/> that represents the event data passed
-    /// from a <see cref="WebSocket.OnClose"/> event.
+    /// from a <see cref="WebSocket.Closed"/> event.
     /// </param>
     protected virtual void OnClose (CloseEventArgs e)
     {
@@ -896,7 +896,7 @@ namespace WebSocketSharp.Server
     /// </summary>
     /// <param name="e">
     /// A <see cref="ErrorEventArgs"/> that represents the event data passed
-    /// from a <see cref="WebSocket.OnError"/> event.
+    /// from a <see cref="WebSocket.Error"/> event.
     /// </param>
     protected virtual void OnError (ErrorEventArgs e)
     {
@@ -907,7 +907,7 @@ namespace WebSocketSharp.Server
     /// </summary>
     /// <param name="e">
     /// A <see cref="MessageEventArgs"/> that represents the event data passed
-    /// from a <see cref="WebSocket.OnMessage"/> event.
+    /// from a <see cref="WebSocket.Message"/> event.
     /// </param>
     protected virtual void OnMessage (MessageEventArgs e)
     {
