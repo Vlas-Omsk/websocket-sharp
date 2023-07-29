@@ -50,6 +50,7 @@ namespace WebSocketSharp.Server
     private WebSocketContext                               _context;
     private Func<CookieCollection, CookieCollection, bool> _cookiesValidator;
     private bool                                           _emitOnPing;
+    private Func<string, bool>                             _hostValidator;
     private string                                         _id;
     private bool                                           _ignoreExtensions;
     private Func<string, bool>                             _originValidator;
@@ -93,6 +94,28 @@ namespace WebSocketSharp.Server
         }
 
         return _context.Headers;
+      }
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether the communication is possible for
+    /// a session.
+    /// </summary>
+    /// <value>
+    /// <c>true</c> if the communication is possible; otherwise, <c>false</c>.
+    /// </value>
+    /// <exception cref="InvalidOperationException">
+    /// The session has not started yet.
+    /// </exception>
+    protected bool IsAlive {
+      get {
+        if (_websocket == null) {
+          var msg = "The session has not started yet.";
+
+          throw new InvalidOperationException (msg);
+        }
+
+        return _websocket.IsAlive;
       }
     }
 
@@ -283,8 +306,8 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the WebSocket interface for
-    /// a session emits the message event when receives a ping.
+    /// Gets or sets a value indicating whether the message event is emitted
+    /// when the WebSocket interface for a session receives a ping.
     /// </summary>
     /// <value>
     ///   <para>
@@ -308,6 +331,41 @@ namespace WebSocketSharp.Server
         }
 
         _emitOnPing = value;
+      }
+    }
+
+    /// <summary>
+    /// Gets or sets the delegate used to validate the Host header.
+    /// </summary>
+    /// <value>
+    ///   <para>
+    ///   A <see cref="T:System.Func{string, bool}"/> delegate.
+    ///   </para>
+    ///   <para>
+    ///   The delegate invokes the method called when the WebSocket interface
+    ///   for a session validates the handshake request.
+    ///   </para>
+    ///   <para>
+    ///   The <see cref="string"/> parameter passed to the method is the value
+    ///   of the Host header.
+    ///   </para>
+    ///   <para>
+    ///   The method must return <c>true</c> if the header value is valid.
+    ///   </para>
+    ///   <para>
+    ///   <see langword="null"/> if not necessary.
+    ///   </para>
+    ///   <para>
+    ///   The default value is <see langword="null"/>.
+    ///   </para>
+    /// </value>
+    public Func<string, bool> HostValidator {
+      get {
+        return _hostValidator;
+      }
+
+      set {
+        _hostValidator = value;
       }
     }
 
@@ -463,6 +521,14 @@ namespace WebSocketSharp.Server
 
     private string checkHandshakeRequest (WebSocketContext context)
     {
+      if (_hostValidator != null) {
+        if (!_hostValidator (context.Host)) {
+          var msg = "The Host header is invalid.";
+
+          return msg;
+        }
+      }
+
       if (_originValidator != null) {
         if (!_originValidator (context.Origin)) {
           var msg = "The Origin header is non-existent or invalid.";
@@ -601,7 +667,7 @@ namespace WebSocketSharp.Server
     ///   A <see cref="string"/> that specifies the reason for the close.
     ///   </para>
     ///   <para>
-    ///   The size must be 123 bytes or less in UTF-8.
+    ///   Its size must be 123 bytes or less in UTF-8.
     ///   </para>
     /// </param>
     /// <exception cref="InvalidOperationException">
@@ -668,26 +734,22 @@ namespace WebSocketSharp.Server
     ///   A <see cref="string"/> that specifies the reason for the close.
     ///   </para>
     ///   <para>
-    ///   The size must be 123 bytes or less in UTF-8.
+    ///   Its size must be 123 bytes or less in UTF-8.
     ///   </para>
     /// </param>
     /// <exception cref="InvalidOperationException">
     /// The session has not started yet.
     /// </exception>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// The size of <paramref name="reason"/> is greater than 123 bytes.
-    /// </exception>
     /// <exception cref="ArgumentException">
     ///   <para>
-    ///   <paramref name="code"/> is
-    ///   <see cref="CloseStatusCode.MandatoryExtension"/>.
+    ///   <paramref name="code"/> is <see cref="CloseStatusCode.MandatoryExtension"/>.
     ///   </para>
     ///   <para>
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   <paramref name="code"/> is <see cref="CloseStatusCode.NoStatus"/>
-    ///   and <paramref name="reason"/> is specified.
+    ///   <paramref name="code"/> is <see cref="CloseStatusCode.NoStatus"/> and
+    ///   <paramref name="reason"/> is specified.
     ///   </para>
     ///   <para>
     ///   -or-
@@ -695,6 +757,9 @@ namespace WebSocketSharp.Server
     ///   <para>
     ///   <paramref name="reason"/> could not be UTF-8-encoded.
     ///   </para>
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The size of <paramref name="reason"/> is greater than 123 bytes.
     /// </exception>
     protected void Close (CloseStatusCode code, string reason)
     {
@@ -762,7 +827,7 @@ namespace WebSocketSharp.Server
     ///   A <see cref="string"/> that specifies the reason for the close.
     ///   </para>
     ///   <para>
-    ///   The size must be 123 bytes or less in UTF-8.
+    ///   Its size must be 123 bytes or less in UTF-8.
     ///   </para>
     /// </param>
     /// <exception cref="InvalidOperationException">
@@ -834,7 +899,7 @@ namespace WebSocketSharp.Server
     ///   A <see cref="string"/> that specifies the reason for the close.
     ///   </para>
     ///   <para>
-    ///   The size must be 123 bytes or less in UTF-8.
+    ///   Its size must be 123 bytes or less in UTF-8.
     ///   </para>
     /// </param>
     /// <exception cref="InvalidOperationException">
@@ -842,15 +907,14 @@ namespace WebSocketSharp.Server
     /// </exception>
     /// <exception cref="ArgumentException">
     ///   <para>
-    ///   <paramref name="code"/> is
-    ///   <see cref="CloseStatusCode.MandatoryExtension"/>.
+    ///   <paramref name="code"/> is <see cref="CloseStatusCode.MandatoryExtension"/>.
     ///   </para>
     ///   <para>
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   <paramref name="code"/> is <see cref="CloseStatusCode.NoStatus"/>
-    ///   and <paramref name="reason"/> is specified.
+    ///   <paramref name="code"/> is <see cref="CloseStatusCode.NoStatus"/> and
+    ///   <paramref name="reason"/> is specified.
     ///   </para>
     ///   <para>
     ///   -or-
@@ -953,7 +1017,7 @@ namespace WebSocketSharp.Server
     ///   A <see cref="string"/> that specifies the message to send.
     ///   </para>
     ///   <para>
-    ///   The size must be 125 bytes or less in UTF-8.
+    ///   Its size must be 125 bytes or less in UTF-8.
     ///   </para>
     /// </param>
     /// <exception cref="InvalidOperationException">

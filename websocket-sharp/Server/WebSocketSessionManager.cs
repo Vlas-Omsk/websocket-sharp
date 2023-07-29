@@ -4,7 +4,7 @@
  *
  * The MIT License
  *
- * Copyright (c) 2012-2021 sta.blockhead
+ * Copyright (c) 2012-2023 sta.blockhead
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -48,10 +48,10 @@ namespace WebSocketSharp.Server
   {
     #region Private Fields
 
-    private static readonly byte[]                _emptyPingFrameAsBytes;
     private object                                _forSweep;
     private volatile bool                         _keepClean;
     private Logger                                _log;
+    private static readonly byte[]                _rawEmptyPingFrame;
     private Dictionary<string, IWebSocketSession> _sessions;
     private volatile ServerState                  _state;
     private volatile bool                         _sweeping;
@@ -65,9 +65,7 @@ namespace WebSocketSharp.Server
 
     static WebSocketSessionManager ()
     {
-      _emptyPingFrameAsBytes = WebSocketFrame
-                               .CreatePingFrame (false)
-                               .ToArray ();
+      _rawEmptyPingFrame = WebSocketFrame.CreatePingFrame (false).ToArray ();
     }
 
     #endregion
@@ -116,7 +114,7 @@ namespace WebSocketSharp.Server
     /// </value>
     public IEnumerable<string> ActiveIDs {
       get {
-        foreach (var res in broadping (_emptyPingFrameAsBytes)) {
+        foreach (var res in broadping (_rawEmptyPingFrame)) {
           if (res.Value)
             yield return res.Key;
         }
@@ -176,7 +174,7 @@ namespace WebSocketSharp.Server
     /// </value>
     public IEnumerable<string> InactiveIDs {
       get {
-        foreach (var res in broadping (_emptyPingFrameAsBytes)) {
+        foreach (var res in broadping (_rawEmptyPingFrame)) {
           if (!res.Value)
             yield return res.Key;
         }
@@ -226,8 +224,8 @@ namespace WebSocketSharp.Server
     /// the WebSocket service are cleaned up periodically.
     /// </summary>
     /// <remarks>
-    /// The set operation does nothing if the service has already started or
-    /// it is shutting down.
+    /// The set operation works if the current state of the service is
+    /// Ready or Stop.
     /// </remarks>
     /// <value>
     /// <c>true</c> if the inactive sessions are cleaned up every 60 seconds;
@@ -275,15 +273,16 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
-    /// Gets or sets the time to wait for the response to the WebSocket Ping
-    /// or Close.
+    /// Gets or sets the time to wait for the response to the WebSocket
+    /// Ping or Close.
     /// </summary>
     /// <remarks>
-    /// The set operation does nothing if the service has already started or
-    /// it is shutting down.
+    /// The set operation works if the current state of the service is
+    /// Ready or Stop.
     /// </remarks>
     /// <value>
-    /// A <see cref="TimeSpan"/> to wait for the response.
+    /// A <see cref="TimeSpan"/> that represents the time to wait for
+    /// the response.
     /// </value>
     /// <exception cref="ArgumentOutOfRangeException">
     /// The value specified for a set operation is zero or less.
@@ -295,7 +294,7 @@ namespace WebSocketSharp.Server
 
       set {
         if (value <= TimeSpan.Zero) {
-          var msg = "It is zero or less.";
+          var msg = "Zero or less.";
 
           throw new ArgumentOutOfRangeException ("value", msg);
         }
@@ -320,7 +319,7 @@ namespace WebSocketSharp.Server
       try {
         foreach (var session in Sessions) {
           if (_state != ServerState.Start) {
-            _log.Error ("The service is shutting down.");
+            _log.Error ("The send is cancelled.");
 
             break;
           }
@@ -340,19 +339,21 @@ namespace WebSocketSharp.Server
       }
     }
 
-    private void broadcast (Opcode opcode, Stream stream, Action completed)
+    private void broadcast (
+      Opcode opcode, Stream sourceStream, Action completed
+    )
     {
       var cache = new Dictionary <CompressionMethod, Stream> ();
 
       try {
         foreach (var session in Sessions) {
           if (_state != ServerState.Start) {
-            _log.Error ("The service is shutting down.");
+            _log.Error ("The send is cancelled.");
 
             break;
           }
 
-          session.WebSocket.Send (opcode, stream, cache);
+          session.WebSocket.Send (opcode, sourceStream, cache);
         }
 
         if (completed != null)
@@ -377,25 +378,27 @@ namespace WebSocketSharp.Server
       );
     }
 
-    private void broadcastAsync (Opcode opcode, Stream stream, Action completed)
+    private void broadcastAsync (
+      Opcode opcode, Stream sourceStream, Action completed
+    )
     {
       ThreadPool.QueueUserWorkItem (
-        state => broadcast (opcode, stream, completed)
+        state => broadcast (opcode, sourceStream, completed)
       );
     }
 
-    private Dictionary<string, bool> broadping (byte[] frameAsBytes)
+    private Dictionary<string, bool> broadping (byte[] rawFrame)
     {
       var ret = new Dictionary<string, bool> ();
 
       foreach (var session in Sessions) {
         if (_state != ServerState.Start) {
-          _log.Error ("The service is shutting down.");
+          ret.Clear ();
 
           break;
         }
 
-        var res = session.WebSocket.Ping (frameAsBytes, _waitTime);
+        var res = session.WebSocket.Ping (rawFrame);
 
         ret.Add (session.ID, res);
       }
@@ -421,18 +424,18 @@ namespace WebSocketSharp.Server
 
     private void stop (PayloadData payloadData, bool send)
     {
-      var bytes = send
-                  ? WebSocketFrame
-                    .CreateCloseFrame (payloadData, false)
-                    .ToArray ()
-                  : null;
+      var rawFrame = send
+                     ? WebSocketFrame
+                       .CreateCloseFrame (payloadData, false)
+                       .ToArray ()
+                     : null;
 
       lock (_sync) {
         _state = ServerState.ShuttingDown;
         _sweepTimer.Enabled = false;
 
         foreach (var session in _sessions.Values.ToList ())
-          session.WebSocket.Close (payloadData, bytes);
+          session.WebSocket.Close (payloadData, rawFrame);
 
         _state = ServerState.Stop;
       }
@@ -494,7 +497,7 @@ namespace WebSocketSharp.Server
       }
 
       var payloadData = new PayloadData (code, reason);
-      var send = !code.IsReserved ();
+      var send = !code.IsReservedStatusCode ();
 
       stop (payloadData, send);
     }
@@ -622,7 +625,7 @@ namespace WebSocketSharp.Server
       }
 
       if (length < 1) {
-        var msg = "It is less than 1.";
+        var msg = "Less than 1.";
 
         throw new ArgumentException (msg, "length");
       }
@@ -647,8 +650,8 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
-    /// Sends the specified data asynchronously to every client in
-    /// the WebSocket service.
+    /// Sends the specified data to every client in the WebSocket service
+    /// asynchronously.
     /// </summary>
     /// <remarks>
     /// This method does not wait for the send to be complete.
@@ -658,11 +661,13 @@ namespace WebSocketSharp.Server
     /// </param>
     /// <param name="completed">
     ///   <para>
-    ///   An <see cref="Action"/> delegate or <see langword="null"/>
-    ///   if not needed.
+    ///   An <see cref="Action"/> delegate.
     ///   </para>
     ///   <para>
     ///   The delegate invokes the method called when the send is complete.
+    ///   </para>
+    ///   <para>
+    ///   <see langword="null"/> if not necessary.
     ///   </para>
     /// </param>
     /// <exception cref="InvalidOperationException">
@@ -686,8 +691,8 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
-    /// Sends the specified data asynchronously to every client in
-    /// the WebSocket service.
+    /// Sends the specified data to every client in the WebSocket service
+    /// asynchronously.
     /// </summary>
     /// <remarks>
     /// This method does not wait for the send to be complete.
@@ -697,11 +702,13 @@ namespace WebSocketSharp.Server
     /// </param>
     /// <param name="completed">
     ///   <para>
-    ///   An <see cref="Action"/> delegate or <see langword="null"/>
-    ///   if not needed.
+    ///   An <see cref="Action"/> delegate.
     ///   </para>
     ///   <para>
     ///   The delegate invokes the method called when the send is complete.
+    ///   </para>
+    ///   <para>
+    ///   <see langword="null"/> if not necessary.
     ///   </para>
     /// </param>
     /// <exception cref="InvalidOperationException">
@@ -736,8 +743,8 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
-    /// Sends the data from the specified stream instance asynchronously to
-    /// every client in the WebSocket service.
+    /// Sends the data from the specified stream instance to every client in
+    /// the WebSocket service asynchronously.
     /// </summary>
     /// <remarks>
     /// This method does not wait for the send to be complete.
@@ -755,11 +762,13 @@ namespace WebSocketSharp.Server
     /// </param>
     /// <param name="completed">
     ///   <para>
-    ///   An <see cref="Action"/> delegate or <see langword="null"/>
-    ///   if not needed.
+    ///   An <see cref="Action"/> delegate.
     ///   </para>
     ///   <para>
     ///   The delegate invokes the method called when the send is complete.
+    ///   </para>
+    ///   <para>
+    ///   <see langword="null"/> if not necessary.
     ///   </para>
     /// </param>
     /// <exception cref="InvalidOperationException">
@@ -803,7 +812,7 @@ namespace WebSocketSharp.Server
       }
 
       if (length < 1) {
-        var msg = "It is less than 1.";
+        var msg = "Less than 1.";
 
         throw new ArgumentException (msg, "length");
       }
@@ -877,7 +886,7 @@ namespace WebSocketSharp.Server
     ///   A <see cref="string"/> that specifies the reason for the close.
     ///   </para>
     ///   <para>
-    ///   The size must be 123 bytes or less in UTF-8.
+    ///   Its size must be 123 bytes or less in UTF-8.
     ///   </para>
     /// </param>
     /// <exception cref="ArgumentNullException">
@@ -897,7 +906,8 @@ namespace WebSocketSharp.Server
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   <paramref name="code"/> is 1005 (no status) and there is reason.
+    ///   <paramref name="code"/> is 1005 (no status) and
+    ///   <paramref name="reason"/> is specified.
     ///   </para>
     ///   <para>
     ///   -or-
@@ -952,7 +962,7 @@ namespace WebSocketSharp.Server
     ///   A <see cref="string"/> that specifies the reason for the close.
     ///   </para>
     ///   <para>
-    ///   The size must be 123 bytes or less in UTF-8.
+    ///   Its size must be 123 bytes or less in UTF-8.
     ///   </para>
     /// </param>
     /// <exception cref="ArgumentNullException">
@@ -966,15 +976,14 @@ namespace WebSocketSharp.Server
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   <paramref name="code"/> is
-    ///   <see cref="CloseStatusCode.MandatoryExtension"/>.
+    ///   <paramref name="code"/> is <see cref="CloseStatusCode.MandatoryExtension"/>.
     ///   </para>
     ///   <para>
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   <paramref name="code"/> is
-    ///   <see cref="CloseStatusCode.NoStatus"/> and there is reason.
+    ///   <paramref name="code"/> is <see cref="CloseStatusCode.NoStatus"/> and
+    ///   <paramref name="reason"/> is specified.
     ///   </para>
     ///   <para>
     ///   -or-
@@ -1006,8 +1015,8 @@ namespace WebSocketSharp.Server
     /// Sends a ping to the client using the specified session.
     /// </summary>
     /// <returns>
-    /// <c>true</c> if the send has done with no error and a pong has been
-    /// received from the client within a time; otherwise, <c>false</c>.
+    /// <c>true</c> if the send has successfully done and a pong has been
+    /// received within a time; otherwise, <c>false</c>.
     /// </returns>
     /// <param name="id">
     /// A <see cref="string"/> that specifies the ID of the session.
@@ -1039,15 +1048,15 @@ namespace WebSocketSharp.Server
     /// the specified session.
     /// </summary>
     /// <returns>
-    /// <c>true</c> if the send has done with no error and a pong has been
-    /// received from the client within a time; otherwise, <c>false</c>.
+    /// <c>true</c> if the send has successfully done and a pong has been
+    /// received within a time; otherwise, <c>false</c>.
     /// </returns>
     /// <param name="message">
     ///   <para>
     ///   A <see cref="string"/> that specifies the message to send.
     ///   </para>
     ///   <para>
-    ///   The size must be 125 bytes or less in UTF-8.
+    ///   Its size must be 125 bytes or less in UTF-8.
     ///   </para>
     /// </param>
     /// <param name="id">
@@ -1117,7 +1126,7 @@ namespace WebSocketSharp.Server
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   The current state of the WebSocket connection is not Open.
+    ///   The current state of the WebSocket interface is not Open.
     ///   </para>
     /// </exception>
     public void SendTo (byte[] data, string id)
@@ -1172,7 +1181,7 @@ namespace WebSocketSharp.Server
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   The current state of the WebSocket connection is not Open.
+    ///   The current state of the WebSocket interface is not Open.
     ///   </para>
     /// </exception>
     public void SendTo (string data, string id)
@@ -1248,7 +1257,7 @@ namespace WebSocketSharp.Server
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   The current state of the WebSocket connection is not Open.
+    ///   The current state of the WebSocket interface is not Open.
     ///   </para>
     /// </exception>
     public void SendTo (Stream stream, string id)
@@ -1265,8 +1274,8 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
-    /// Sends the specified data asynchronously to the client using
-    /// the specified session.
+    /// Sends the specified data to the client using the specified session
+    /// asynchronously.
     /// </summary>
     /// <remarks>
     /// This method does not wait for the send to be complete.
@@ -1279,15 +1288,17 @@ namespace WebSocketSharp.Server
     /// </param>
     /// <param name="completed">
     ///   <para>
-    ///   An <c>Action&lt;bool&gt;</c> delegate or <see langword="null"/>
-    ///   if not needed.
+    ///   An <see cref="T:System.Action{bool}"/> delegate.
     ///   </para>
     ///   <para>
     ///   The delegate invokes the method called when the send is complete.
     ///   </para>
     ///   <para>
-    ///   <c>true</c> is passed to the method if the send has done with
-    ///   no error; otherwise, <c>false</c>.
+    ///   The <see cref="bool"/> parameter passed to the method is <c>true</c>
+    ///   if the send has successfully done; otherwise, <c>false</c>.
+    ///   </para>
+    ///   <para>
+    ///   <see langword="null"/> if not necessary.
     ///   </para>
     /// </param>
     /// <exception cref="ArgumentNullException">
@@ -1312,7 +1323,7 @@ namespace WebSocketSharp.Server
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   The current state of the WebSocket connection is not Open.
+    ///   The current state of the WebSocket interface is not Open.
     ///   </para>
     /// </exception>
     public void SendToAsync (byte[] data, string id, Action<bool> completed)
@@ -1329,8 +1340,8 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
-    /// Sends the specified data asynchronously to the client using
-    /// the specified session.
+    /// Sends the specified data to the client using the specified session
+    /// asynchronously.
     /// </summary>
     /// <remarks>
     /// This method does not wait for the send to be complete.
@@ -1343,15 +1354,17 @@ namespace WebSocketSharp.Server
     /// </param>
     /// <param name="completed">
     ///   <para>
-    ///   An <c>Action&lt;bool&gt;</c> delegate or <see langword="null"/>
-    ///   if not needed.
+    ///   An <see cref="T:System.Action{bool}"/> delegate.
     ///   </para>
     ///   <para>
     ///   The delegate invokes the method called when the send is complete.
     ///   </para>
     ///   <para>
-    ///   <c>true</c> is passed to the method if the send has done with
-    ///   no error; otherwise, <c>false</c>.
+    ///   The <see cref="bool"/> parameter passed to the method is <c>true</c>
+    ///   if the send has successfully done; otherwise, <c>false</c>.
+    ///   </para>
+    ///   <para>
+    ///   <see langword="null"/> if not necessary.
     ///   </para>
     /// </param>
     /// <exception cref="ArgumentNullException">
@@ -1384,7 +1397,7 @@ namespace WebSocketSharp.Server
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   The current state of the WebSocket connection is not Open.
+    ///   The current state of the WebSocket interface is not Open.
     ///   </para>
     /// </exception>
     public void SendToAsync (string data, string id, Action<bool> completed)
@@ -1401,8 +1414,8 @@ namespace WebSocketSharp.Server
     }
 
     /// <summary>
-    /// Sends the data from the specified stream instance asynchronously to
-    /// the client using the specified session.
+    /// Sends the data from the specified stream instance to the client using
+    /// the specified session asynchronously.
     /// </summary>
     /// <remarks>
     /// This method does not wait for the send to be complete.
@@ -1423,15 +1436,17 @@ namespace WebSocketSharp.Server
     /// </param>
     /// <param name="completed">
     ///   <para>
-    ///   An <c>Action&lt;bool&gt;</c> delegate or <see langword="null"/>
-    ///   if not needed.
+    ///   An <see cref="T:System.Action{bool}"/> delegate.
     ///   </para>
     ///   <para>
     ///   The delegate invokes the method called when the send is complete.
     ///   </para>
     ///   <para>
-    ///   <c>true</c> is passed to the method if the send has done with
-    ///   no error; otherwise, <c>false</c>.
+    ///   The <see cref="bool"/> parameter passed to the method is <c>true</c>
+    ///   if the send has successfully done; otherwise, <c>false</c>.
+    ///   </para>
+    ///   <para>
+    ///   <see langword="null"/> if not necessary.
     ///   </para>
     /// </param>
     /// <exception cref="ArgumentNullException">
@@ -1476,7 +1491,7 @@ namespace WebSocketSharp.Server
     ///   -or-
     ///   </para>
     ///   <para>
-    ///   The current state of the WebSocket connection is not Open.
+    ///   The current state of the WebSocket interface is not Open.
     ///   </para>
     /// </exception>
     public void SendToAsync (
@@ -1500,14 +1515,14 @@ namespace WebSocketSharp.Server
     public void Sweep ()
     {
       if (_sweeping) {
-        _log.Info ("The sweeping is already in progress.");
+        _log.Trace ("The sweep process is already in progress.");
 
         return;
       }
 
       lock (_forSweep) {
         if (_sweeping) {
-          _log.Info ("The sweeping is already in progress.");
+          _log.Trace ("The sweep process is already in progress.");
 
           return;
         }
@@ -1550,7 +1565,7 @@ namespace WebSocketSharp.Server
     /// Tries to get the session instance with the specified ID.
     /// </summary>
     /// <returns>
-    /// <c>true</c> if the session is successfully found; otherwise,
+    /// <c>true</c> if the session instance is successfully found; otherwise,
     /// <c>false</c>.
     /// </returns>
     /// <param name="id">
