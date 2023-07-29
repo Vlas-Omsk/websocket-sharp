@@ -2124,15 +2124,8 @@ namespace WebSocketSharp
       }
 #endif
 
-      lock (_forState) {
-        if (_readyState != WebSocketState.Open) {
-          _logger.Trace ("The connection is closing.");
-
-          return false;
-        }
-
-        var frame = new WebSocketFrame (fin, opcode, data, compressed, _client);
-        var bytes = frame.ToArray ();
+      var frame = new WebSocketFrame (fin, opcode, data, compressed, _client);
+      var rawFrame = frame.ToArray ();
 
       return send (rawFrame);
     }
@@ -3576,29 +3569,7 @@ namespace WebSocketSharp
         throw new ArgumentException (msg, "stream");
       }
 
-      if (length < 1) {
-        var msg = "Less than 1.";
-
-        throw new ArgumentException (msg, "length");
-      }
-
-      var bytes = stream.ReadBytes (length);
-      var len = bytes.Length;
-
-      if (len == 0) {
-        var msg = "No data could be read from it.";
-
-        throw new ArgumentException (msg, "stream");
-      }
-
-      if (len < length) {
-        var fmt = "Only {0} byte(s) of data could be read from the stream.";
-        var msg = String.Format (fmt, len);
-
-        _log.Warn (msg);
-      }
-
-      send (Opcode.Binary, new MemoryStream (bytes));
+      send (Opcode.Binary, stream);
     }
 
     /// <summary>
