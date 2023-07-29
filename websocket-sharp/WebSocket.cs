@@ -50,6 +50,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using WebSocketSharp.Net;
 using WebSocketSharp.Net.WebSockets;
 
@@ -1268,9 +1269,7 @@ namespace WebSocketSharp
     {
       Action<PayloadData, bool, bool> closer = close;
 
-      closer.BeginInvoke (
-        payloadData, send, received, ar => closer.EndInvoke (ar), null
-      );
+      Task.Run(() => closer(payloadData, send, received));
     }
 
     private bool closeHandshake (
@@ -1698,7 +1697,7 @@ namespace WebSocketSharp
         e = _messageEventQueue.Dequeue ();
       }
 
-      _message.BeginInvoke (e, ar => _message.EndInvoke (ar), null);
+      Task.Run(() => _message(e));
     }
 
     private bool ping (byte[] data)
@@ -2136,28 +2135,24 @@ namespace WebSocketSharp
     {
       Func<Opcode, Stream, bool> sender = send;
 
-      sender.BeginInvoke (
-        opcode,
-        sourceStream,
-        ar => {
-          try {
-            var sent = sender.EndInvoke (ar);
+      Task.Run(() =>
+      {
+        try {
+          var sent = sender(opcode, sourceStream);
 
-            if (completed != null)
-              completed (sent);
-          }
-          catch (Exception ex) {
-            _log.Error (ex.Message);
-            _log.Debug (ex.ToString ());
+          if (completed != null)
+            completed (sent);
+        }
+        catch (Exception ex) {
+          _log.Error (ex.Message);
+          _log.Debug (ex.ToString ());
 
-            error (
-              "An exception has occurred during the callback for an async send.",
-              ex
-            );
-          }
-        },
-        null
-      );
+          error (
+            "An exception has occurred during the callback for an async send.",
+            ex
+          );
+        }
+      });
     }
 
     private bool sendBytes (byte[] bytes)
@@ -2473,17 +2468,15 @@ namespace WebSocketSharp
     {
       Func<bool> acceptor = accept;
 
-      acceptor.BeginInvoke (
-        ar => {
-          var accepted = acceptor.EndInvoke (ar);
+      Task.Run(() =>
+      {
+        var accepted = acceptor();
 
-          if (!accepted)
-            return;
+        if (!accepted)
+          return;
 
-          open ();
-        },
-        null
-      );
+        open();
+      });
     }
 
     // As server
@@ -3328,17 +3321,15 @@ namespace WebSocketSharp
 
       Func<bool> connector = connect;
 
-      connector.BeginInvoke (
-        ar => {
-          var connected = connector.EndInvoke (ar);
+      Task.Run(() =>
+      {
+        var connected = connector();
 
-          if (!connected)
-            return;
+        if (!connected)
+          return;
 
-          open ();
-        },
-        null
-      );
+        open();
+      });
     }
 
     /// <summary>
